@@ -4,22 +4,28 @@ use rusqlite::Connection;
 
 #[derive(Debug)]
 pub struct Credential {
+    id: Option<usize>,
     email: String,
     password: String,
 }
 
 impl Credential {
-    pub fn new(email: String, password: String) -> Self {
-        Self { email, password }
+    pub fn new(id: Option<usize>, email: String, password: String) -> Self {
+        Self {
+            id,
+            email,
+            password,
+        }
     }
 
     pub fn read(path: &str) -> Result<Vec<Self>, Box<dyn Error>> {
         let connection = Connection::open(path)?;
-        let mut select = connection.prepare("SELECT email, password FROM credentials;")?;
+        let mut select = connection.prepare("SELECT id, email, password FROM credentials;")?;
         let rows = select.query_map((), |row| {
             Ok(Credential {
-                email: row.get(0)?,
-                password: row.get(1)?,
+                id: Some(row.get(0)?),
+                email: row.get(1)?,
+                password: row.get(2)?,
             })
         })?;
         Ok(rows.map(|row| row.unwrap()).collect())
@@ -42,8 +48,17 @@ impl Credential {
         Ok(())
     }
 
+    pub fn delete(id: usize, path: &str) -> Result<(), Box<dyn Error>> {
+        let connection = Connection::open(path)?;
+        let delete = "
+            DELETE FROM credentials WHERE id = ?1;
+            ";
+        connection.execute(delete, [&id])?;
+        Ok(())
+    }
+
     pub fn print(&self) {
-        println!("{}|{}", self.email, self.password);
+        println!("{}|{}|{}", self.id.unwrap(), self.email, self.password);
     }
 }
 
@@ -57,6 +72,7 @@ mod tests {
     fn test_read_succeed() {
         let credentials = Credential::read("examples/test.db").unwrap();
         let result = credentials.get(0).unwrap();
+        assert_eq!(result.id, Some(1));
         assert_eq!(result.email, "test@example.com");
         assert_eq!(result.password, "123456");
     }
@@ -69,11 +85,29 @@ mod tests {
     #[test]
     fn test_write() {
         let credential = Credential {
+            id: None,
             email: String::from("test@example.com"),
             password: String::from("123456"),
         };
-        let dummy_path = "dummy.db";
+        let dummy_path = "dummy_for_write.db";
         assert!(credential.write(dummy_path).is_ok());
+        fs::remove_file(dummy_path).unwrap();
+    }
+
+    #[test]
+    fn test_delete() {
+        let credential = Credential {
+            id: None,
+            email: String::from("test@example.com"),
+            password: String::from("123456"),
+        };
+        let dummy_path = "dummy_for_delete.db";
+        credential.write(dummy_path).unwrap();
+        let credentials = Credential::read(dummy_path).unwrap();
+        let result = credentials.get(0).unwrap();
+        let id = result.id.unwrap();
+
+        assert!(Credential::delete(id, dummy_path).is_ok());
         fs::remove_file(dummy_path).unwrap();
     }
 }

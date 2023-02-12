@@ -17,16 +17,26 @@ fn main() {
         None => {
             let email = cli::read_email();
             let password = cli::read_password();
-            Credential::new(email, password).write(&path_to_db).unwrap();
+            Credential::new(None, email, password)
+                .write(&path_to_db)
+                .unwrap();
         }
-        Some(flag) => {
-            if flag == "-l" {
+        Some(flag) => match flag.as_str() {
+            "-l" => {
                 let credentials = Credential::read(&path_to_db).unwrap_or_default();
-                println!("email|password");
+                println!("id|email|password");
                 for credential in credentials {
                     credential.print();
                 }
             }
-        }
+            "-r" => {
+                let id = cli::read_id();
+                Credential::delete(id, &path_to_db).unwrap();
+            }
+            "-u" => {
+                todo!()
+            }
+            _ => todo!(),
+        },
     }
 }
