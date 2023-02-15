@@ -3,6 +3,7 @@
 use std::env;
 
 use credential::Credential;
+use rusqlite::Connection;
 
 mod cli;
 mod credential;
@@ -16,17 +17,18 @@ fn main() {
     let args: Vec<String> = env::args().into_iter().collect();
     let home_path = env::var("HOME").unwrap();
     let path_to_db = format!("{home_path}/{DEFAULT_FILENAME}");
+    let connection = Connection::open(path_to_db).unwrap();
     match args.get(1) {
         None => {
             let email = cli::read_email();
             let password = cli::read_password();
             Credential::new(None, email, password)
-                .write(&path_to_db)
+                .write(&connection)
                 .unwrap();
         }
         Some(flag) => match flag.as_str() {
             "-l" => {
-                let credentials = Credential::read(&path_to_db).unwrap_or_default();
+                let credentials = Credential::read(&connection).unwrap_or_default();
                 println!("id|email|password");
                 for credential in credentials {
                     credential.print();
@@ -34,14 +36,14 @@ fn main() {
             }
             "-d" => {
                 let id = cli::read_id_for_delete();
-                Credential::delete(id, &path_to_db).unwrap();
+                Credential::delete(id, &connection).unwrap();
             }
             "-u" => {
                 let id = cli::read_id_for_update();
                 let email = cli::read_email();
                 let password = cli::read_password();
                 Credential::new(Some(id), email, password)
-                    .update(&path_to_db)
+                    .update(&connection)
                     .unwrap();
             }
             _ => todo!(),

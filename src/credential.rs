@@ -20,8 +20,7 @@ impl Credential {
 
     /// TODO
     /// - build query automatically
-    pub fn read(path: &str) -> Result<Vec<Self>, Box<dyn Error>> {
-        let connection = Connection::open(path)?;
+    pub fn read(connection: &Connection) -> Result<Vec<Self>, Box<dyn Error>> {
         let mut select = connection.prepare("SELECT id, email, password FROM credentials;")?;
         let rows = select.query_map((), |row| {
             Ok(Credential {
@@ -35,8 +34,7 @@ impl Credential {
 
     /// TODO
     /// - build query automatically
-    pub fn write(&self, path: &str) -> Result<(), Box<dyn Error>> {
-        let connection = Connection::open(path)?;
+    pub fn write(&self, connection: &Connection) -> Result<(), Box<dyn Error>> {
         let create = "
             CREATE TABLE IF NOT EXISTS credentials(
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,9 +50,8 @@ impl Credential {
         Ok(())
     }
 
-    pub fn delete(id: usize, path: &str) -> Result<(), Box<dyn Error>> {
-        let connection = Connection::open(path)?;
-        if !(Credential::check_record_exists(id, path)?) {
+    pub fn delete(id: usize, connection: &Connection) -> Result<(), Box<dyn Error>> {
+        if !(Credential::check_record_exists(id, connection)?) {
             todo!()
         }
         let delete = "
@@ -66,14 +63,13 @@ impl Credential {
 
     /// TODO
     /// - build query automatically
-    pub fn update(&self, path: &str) -> Result<(), Box<dyn Error>> {
-        let connection = Connection::open(path)?;
+    pub fn update(&self, connection: &Connection) -> Result<(), Box<dyn Error>> {
         let id = self.id.unwrap();
-        if !(Credential::check_record_exists(id, path)?) {
+        if !(Credential::check_record_exists(id, connection)?) {
             todo!()
         }
         let update = "
-            UPDATE credentials 
+            UPDATE credentials
             SET email = ?1, password = ?2
             WHERE id = ?3;
             ";
@@ -85,8 +81,7 @@ impl Credential {
         println!("{}|{}|{}", self.id.unwrap(), self.email, self.password);
     }
 
-    fn check_record_exists(id: usize, path: &str) -> rusqlite::Result<bool> {
-        let connection = Connection::open(path)?;
+    fn check_record_exists(id: usize, connection: &Connection) -> rusqlite::Result<bool> {
         let mut select = connection.prepare(
             "
             SELECT 1 FROM credentials WHERE id = ?;
@@ -96,16 +91,14 @@ impl Credential {
     }
 }
 
-/// TODO: use in memory db
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use super::*;
 
     #[test]
     fn test_read_succeed() {
-        let credentials = Credential::read("examples/test.db").unwrap();
+        let conn = Connection::open("examples/test.db").unwrap();
+        let credentials = Credential::read(&conn).unwrap();
         let result = credentials.get(0).unwrap();
         assert_eq!(result.id, Some(1));
         assert_eq!(result.email, "test@example.com");
@@ -114,7 +107,8 @@ mod tests {
 
     #[test]
     fn test_read_fail() {
-        assert!(Credential::read("examples/table_not_exist.db").is_err());
+        let conn = Connection::open("examples/table_not_exist.db").unwrap();
+        assert!(Credential::read(&conn).is_err());
     }
 
     #[test]
@@ -124,9 +118,8 @@ mod tests {
             email: String::from("test@example.com"),
             password: String::from("123456"),
         };
-        let dummy_path = "dummy_for_write.db";
-        assert!(credential.write(dummy_path).is_ok());
-        fs::remove_file(dummy_path).unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        assert!(credential.write(&conn).is_ok());
     }
 
     #[test]
@@ -136,21 +129,20 @@ mod tests {
             email: String::from("test@example.com"),
             password: String::from("123456"),
         };
-        let dummy_path = "dummy_for_update.db";
-        credential.write(dummy_path).unwrap();
-        let credentials = Credential::read(dummy_path).unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        credential.write(&conn).unwrap();
+        let credentials = Credential::read(&conn).unwrap();
         let credential = credentials.get(0).unwrap();
         let new_credential = Credential {
             id: credential.id,
             email: String::from("update@example.com"),
             password: String::from("78910"),
         };
-        new_credential.update(dummy_path).unwrap();
-        let credentials = Credential::read(dummy_path).unwrap();
+        new_credential.update(&conn).unwrap();
+        let credentials = Credential::read(&conn).unwrap();
         let result = credentials.get(0).unwrap();
         assert_eq!(result.email, String::from("update@example.com"));
         assert_eq!(result.password, String::from("78910"));
-        fs::remove_file(dummy_path).unwrap();
     }
 
     #[test]
@@ -160,14 +152,13 @@ mod tests {
             email: String::from("test@example.com"),
             password: String::from("123456"),
         };
-        let dummy_path = "dummy_for_delete.db";
-        credential.write(dummy_path).unwrap();
-        let credentials = Credential::read(dummy_path).unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        credential.write(&conn).unwrap();
+        let credentials = Credential::read(&conn).unwrap();
         let result = credentials.get(0).unwrap();
         let id = result.id.unwrap();
 
-        assert!(Credential::delete(id, dummy_path).is_ok());
-        fs::remove_file(dummy_path).unwrap();
+        assert!(Credential::delete(id, &conn).is_ok());
     }
 
     #[test]
@@ -177,12 +168,12 @@ mod tests {
             email: String::from("test@example.com"),
             password: String::from("123456"),
         };
-        let dummy_path = "dummy_for_check_record_exists.db";
-        credential.write(dummy_path).unwrap();
-        let credentials = Credential::read(dummy_path).unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        credential.write(&conn).unwrap();
+        let credentials = Credential::read(&conn).unwrap();
         let result = credentials.get(0).unwrap();
         let id = result.id.unwrap();
-        let exist = Credential::check_record_exists(id, dummy_path).unwrap();
+        let exist = Credential::check_record_exists(id, &conn).unwrap();
         assert!(exist);
     }
 }
