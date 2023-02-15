@@ -52,10 +52,11 @@ impl Credential {
         Ok(())
     }
 
-    /// TODO
-    /// detect whether id exists
     pub fn delete(id: usize, path: &str) -> Result<(), Box<dyn Error>> {
         let connection = Connection::open(path)?;
+        if !(Credential::check_record_exists(id, path)?) {
+            todo!()
+        }
         let delete = "
             DELETE FROM credentials WHERE id = ?1;
             ";
@@ -64,24 +65,38 @@ impl Credential {
     }
 
     /// TODO
-    /// - detect whether id exists
     /// - build query automatically
     pub fn update(&self, path: &str) -> Result<(), Box<dyn Error>> {
         let connection = Connection::open(path)?;
+        let id = self.id.unwrap();
+        if !(Credential::check_record_exists(id, path)?) {
+            todo!()
+        }
         let update = "
             UPDATE credentials 
             SET email = ?1, password = ?2
             WHERE id = ?3;
             ";
-        connection.execute(update, (&self.email, &self.password, &self.id.unwrap()))?;
+        connection.execute(update, (&self.email, &self.password, &id))?;
         Ok(())
     }
 
     pub fn print(&self) {
         println!("{}|{}|{}", self.id.unwrap(), self.email, self.password);
     }
+
+    fn check_record_exists(id: usize, path: &str) -> rusqlite::Result<bool> {
+        let connection = Connection::open(path)?;
+        let mut select = connection.prepare(
+            "
+            SELECT 1 FROM credentials WHERE id = ?;
+            ",
+        )?;
+        select.exists([&id])
+    }
 }
 
+/// TODO: use in memory db
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -153,5 +168,21 @@ mod tests {
 
         assert!(Credential::delete(id, dummy_path).is_ok());
         fs::remove_file(dummy_path).unwrap();
+    }
+
+    #[test]
+    fn test_check_record_exists() {
+        let credential = Credential {
+            id: None,
+            email: String::from("test@example.com"),
+            password: String::from("123456"),
+        };
+        let dummy_path = "dummy_for_check_record_exists.db";
+        credential.write(dummy_path).unwrap();
+        let credentials = Credential::read(dummy_path).unwrap();
+        let result = credentials.get(0).unwrap();
+        let id = result.id.unwrap();
+        let exist = Credential::check_record_exists(id, dummy_path).unwrap();
+        assert!(exist);
     }
 }
