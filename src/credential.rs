@@ -18,6 +18,8 @@ impl Credential {
         }
     }
 
+    /// TODO
+    /// - build query automatically
     pub fn read(path: &str) -> Result<Vec<Self>, Box<dyn Error>> {
         let connection = Connection::open(path)?;
         let mut select = connection.prepare("SELECT id, email, password FROM credentials;")?;
@@ -31,6 +33,8 @@ impl Credential {
         Ok(rows.map(|row| row.unwrap()).collect())
     }
 
+    /// TODO
+    /// - build query automatically
     pub fn write(&self, path: &str) -> Result<(), Box<dyn Error>> {
         let connection = Connection::open(path)?;
         let create = "
@@ -48,12 +52,28 @@ impl Credential {
         Ok(())
     }
 
+    /// TODO
+    /// detect whether id exists
     pub fn delete(id: usize, path: &str) -> Result<(), Box<dyn Error>> {
         let connection = Connection::open(path)?;
         let delete = "
             DELETE FROM credentials WHERE id = ?1;
             ";
         connection.execute(delete, [&id])?;
+        Ok(())
+    }
+
+    /// TODO
+    /// - detect whether id exists
+    /// - build query automatically
+    pub fn update(&self, path: &str) -> Result<(), Box<dyn Error>> {
+        let connection = Connection::open(path)?;
+        let update = "
+            UPDATE credentials 
+            SET email = ?1, password = ?2
+            WHERE id = ?3;
+            ";
+        connection.execute(update, (&self.email, &self.password, &self.id.unwrap()))?;
         Ok(())
     }
 
@@ -91,6 +111,30 @@ mod tests {
         };
         let dummy_path = "dummy_for_write.db";
         assert!(credential.write(dummy_path).is_ok());
+        fs::remove_file(dummy_path).unwrap();
+    }
+
+    #[test]
+    fn test_update() {
+        let credential = Credential {
+            id: None,
+            email: String::from("test@example.com"),
+            password: String::from("123456"),
+        };
+        let dummy_path = "dummy_for_update.db";
+        credential.write(dummy_path).unwrap();
+        let credentials = Credential::read(dummy_path).unwrap();
+        let credential = credentials.get(0).unwrap();
+        let new_credential = Credential {
+            id: credential.id,
+            email: String::from("update@example.com"),
+            password: String::from("78910"),
+        };
+        new_credential.update(dummy_path).unwrap();
+        let credentials = Credential::read(dummy_path).unwrap();
+        let result = credentials.get(0).unwrap();
+        assert_eq!(result.email, String::from("update@example.com"));
+        assert_eq!(result.password, String::from("78910"));
         fs::remove_file(dummy_path).unwrap();
     }
 

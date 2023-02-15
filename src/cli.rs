@@ -16,8 +16,16 @@ pub fn read_password() -> String {
     return password.trim_end().to_owned();
 }
 
-pub fn read_id() -> usize {
-    print!("Enter the record's ID you want to remove: ");
+pub fn read_id_for_delete() -> usize {
+    read_id("Enter the record's ID you want to remove: ")
+}
+
+pub fn read_id_for_update() -> usize {
+    read_id("Enter the record's ID you want to update: ")
+}
+
+fn read_id(message: &str) -> usize {
+    print!("{message}");
     io::stdout().flush().unwrap();
     loop {
         let mut id_as_string = String::new();

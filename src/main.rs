@@ -9,6 +9,9 @@ mod credential;
 
 const DEFAULT_FILENAME: &str = ".credentials.db";
 
+/// TODO
+/// - config
+/// - encryption
 fn main() {
     let args: Vec<String> = env::args().into_iter().collect();
     let home_path = env::var("HOME").unwrap();
@@ -29,12 +32,17 @@ fn main() {
                     credential.print();
                 }
             }
-            "-r" => {
-                let id = cli::read_id();
+            "-d" => {
+                let id = cli::read_id_for_delete();
                 Credential::delete(id, &path_to_db).unwrap();
             }
             "-u" => {
-                todo!()
+                let id = cli::read_id_for_update();
+                let email = cli::read_email();
+                let password = cli::read_password();
+                Credential::new(Some(id), email, password)
+                    .update(&path_to_db)
+                    .unwrap();
             }
             _ => todo!(),
         },
