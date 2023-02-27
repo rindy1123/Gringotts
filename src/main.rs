@@ -2,7 +2,7 @@
 
 use std::env;
 
-use credential::Credential;
+use credential::{Credential, CredentialIterator};
 use rusqlite::Connection;
 
 mod cli;
@@ -28,11 +28,7 @@ fn main() {
         }
         Some(flag) => match flag.as_str() {
             "-l" => {
-                let credentials = Credential::read(&connection).unwrap_or_default();
-                println!("id|email|password");
-                for credential in credentials {
-                    credential.print();
-                }
+                Credential::read(&connection).unwrap_or_default().print();
             }
             "-d" => {
                 let id = cli::read_id_for_delete();

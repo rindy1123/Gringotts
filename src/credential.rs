@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, process::exit};
 
 use rusqlite::Connection;
 
@@ -52,7 +52,8 @@ impl Credential {
 
     pub fn delete(id: usize, connection: &Connection) -> Result<(), Box<dyn Error>> {
         if !(Credential::check_record_exists(id, connection)?) {
-            todo!()
+            println!("ID you entered does not exist.");
+            exit(1);
         }
         let delete = "
             DELETE FROM credentials WHERE id = ?1;
@@ -66,7 +67,8 @@ impl Credential {
     pub fn update(&self, connection: &Connection) -> Result<(), Box<dyn Error>> {
         let id = self.id.unwrap();
         if !(Credential::check_record_exists(id, connection)?) {
-            todo!()
+            println!("ID you entered does not exist.");
+            exit(1);
         }
         let update = "
             UPDATE credentials
@@ -77,10 +79,6 @@ impl Credential {
         Ok(())
     }
 
-    pub fn print(&self) {
-        println!("{}|{}|{}", self.id.unwrap(), self.email, self.password);
-    }
-
     fn check_record_exists(id: usize, connection: &Connection) -> rusqlite::Result<bool> {
         let mut select = connection.prepare(
             "
@@ -88,6 +86,24 @@ impl Credential {
             ",
         )?;
         select.exists([&id])
+    }
+}
+
+pub trait CredentialIterator {
+    fn print(&self) {}
+}
+
+impl CredentialIterator for Vec<Credential> {
+    fn print(&self) {
+        println!("id|email|password");
+        for credential in self {
+            println!(
+                "{}|{}|{}",
+                credential.id.unwrap(),
+                credential.email,
+                credential.password
+            );
+        }
     }
 }
 
